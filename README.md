@@ -1,101 +1,121 @@
-[![Udacity - Robotics NanoDegree Program](https://s3-us-west-1.amazonaws.com/udacity-robotics/Extra+Images/RoboND_flag.png)](https://www.udacity.com/robotics)
-# Robotic arm - Pick & Place project
+## Project: Kinematics Pick & Place
 
-Make sure you are using robo-nd VM or have Ubuntu+ROS installed locally.
+---
 
-### One time Gazebo setup step:
-Check the version of gazebo installed on your system using a terminal:
-```sh
-$ gazebo --version
-```
-To run projects from this repository you need version 7.7.0+
-If your gazebo version is not 7.7.0+, perform the update as follows:
-```sh
-$ sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
-$ wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
-$ sudo apt-get update
-$ sudo apt-get install gazebo7
-```
+[//]: # (Image References)
 
-Once again check if the correct version was installed:
-```sh
-$ gazebo --version
-```
-### For the rest of this setup, catkin_ws is the name of active ROS Workspace, if your workspace name is different, change the commands accordingly
+[image1]: ./misc_images/schematic_DH.png
+[image2]: ./misc_images/theta2_3.png
+[image3]: ./misc_images/result.png
 
-If you do not have an active ROS workspace, you can create one by:
-```sh
-$ mkdir -p ~/catkin_ws/src
-$ cd ~/catkin_ws/
-$ catkin_make
-```
 
-Now that you have a workspace, clone or download this repo into the **src** directory of your workspace:
-```sh
-$ cd ~/catkin_ws/src
-$ git clone https://github.com/udacity/RoboND-Kinematics-Project.git
-```
+### Kinematic Analysis
+#### 1. Run the forward_kinematics demo and evaluate the kr210.urdf.xacro file to perform kinematic analysis of Kuka KR210 robot and derive its DH parameters.
 
-Now from a terminal window:
+I followed the lesson materials to analyze KR210 schematic and then made following DH parameters.
 
-```sh
-$ cd ~/catkin_ws
-$ rosdep install --from-paths src --ignore-src --rosdistro=kinetic -y
-$ cd ~/catkin_ws/src/RoboND-Kinematics-Project/kuka_arm/scripts
-$ sudo chmod +x target_spawn.py
-$ sudo chmod +x IK_server.py
-$ sudo chmod +x safe_spawner.sh
-```
-Build the project:
-```sh
-$ cd ~/catkin_ws
-$ catkin_make
+![alt text][image1]
+
+Put the DH patameters in a table.
+
+i | alpha(i-1) | a(i-1) | d(i) | theta(i)
+--- | --- | --- | --- | ---
+1 | 0 | 0 | 0.75 | q1
+2 | - pi/2 | 0.35 | 0 | q2-pi/2
+3 | 0 | 1.25 | 0 | q3
+4 |  -pi/2 | -0.054 | 1.5 | q4
+5 | pi/2 | 0 | 0 | q5
+6 | -pi/2 | 0 | 0 | q6
+G | 0 | 0 | 0.303 | 0
+
+
+#### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
+
+I defined the transformation matrix as follows,
+```python
+def dh_matrix(q, a, d, alpha):
+    return Matrix([[cos(q), -sin(q), 0, a],
+                   [sin(q) * cos(alpha), cos(q) * cos(alpha), -sin(alpha), -sin(alpha) * d],
+                   [sin(q) * sin(alpha), cos(q) * sin(alpha), cos(alpha), cos(alpha) * d],
+                   [0, 0, 0, 1]])
 ```
 
-Add following to your .bashrc file
-```
-export GAZEBO_MODEL_PATH=~/catkin_ws/src/RoboND-Kinematics-Project/kuka_arm/models
+Then transformation matrices for individual joint are,
 
-source ~/catkin_ws/devel/setup.bash
-```
-
-For demo mode make sure the **demo** flag is set to _"true"_ in `inverse_kinematics.launch` file under /RoboND-Kinematics-Project/kuka_arm/launch
-
-In addition, you can also control the spawn location of the target object in the shelf. To do this, modify the **spawn_location** argument in `target_description.launch` file under /RoboND-Kinematics-Project/kuka_arm/launch. 0-9 are valid values for spawn_location with 0 being random mode.
-
-You can launch the project by
-```sh
-$ cd ~/catkin_ws/src/RoboND-Kinematics-Project/kuka_arm/scripts
-$ ./safe_spawner.sh
+```python
+T0_1 = dh_matrix(q1, a0, d1, alpha0)
+T1_2 = dh_matrix(q2 - pi / 2, a1, d2, alpha1)
+T2_3 = dh_matrix(q3, a2, d3, alpha2)
+T3_4 = dh_matrix(q4, a3, d4, alpha3)
+T4_5 = dh_matrix(q5, a4, d5, alpha4)
+T5_6 = dh_matrix(q6, a5, d6, alpha5)
+T6_G = dh_matrix(q7, a6, d7, alpha6)
 ```
 
-If you are running in demo mode, this is all you need. To run your own Inverse Kinematics code change the **demo** flag described above to _"false"_ and run your code (once the project has successfully loaded) by:
-```sh
-$ cd ~/catkin_ws/src/RoboND-Kinematics-Project/kuka_arm/scripts
-$ rosrun kuka_arm IK_server.py
+And the homogeneous transform from base_link to gripper_link is a post-product of individual transformation defined above,
+
+```python
+T0_G = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_G
 ```
-Once Gazebo and rviz are up and running, make sure you see following in the gazebo world:
 
-	- Robot
-	
-	- Shelf
-	
-	- Blue cylindrical target in one of the shelves
-	
-	- Dropbox right next to the robot
-	
+#### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
 
-If any of these items are missing, report as an issue.
+The last three joints of Kuka KR210 is a spherical wrist and their axes intersect at the origin of joint5. The problem to obtain wrist center therefore is to calculate the position of joint5. Given the end-effector's position (px, py, pz) and orientation (roll, pitch, yaw), we have its homogeneous transformation matrix Rrpy, which is the same as R0_6. So I calculated wrist center `wc` through,
+```python
+wc = EE - (d6 + d7) * Rrpy[:3, 2]
+xc = wc[0]
+yc = wc[1]
+zc = wc[2]
+```
 
-Once all these items are confirmed, open rviz window, hit Next button.
+For solving Inverse Position Kinematics, namely theta1, theta2 and theta3, is the most difficult part in this project, especially theta2 and theta3. First, I use x and y value of `wc` to get theta1,
+```python
+theta1 = atan2(yc, xc)
+```
 
-To view the complete demo keep hitting Next after previous action is completed successfully. 
+To calculate theta2 and theta3, I found it's easier for me to derive them through trigonometry formulas by projecting wrist center onto the X-Z plane.  
 
-Since debugging is enabled, you should be able to see diagnostic output on various terminals that have popped up.
+![alt text][image2]
 
-The demo ends when the robot arm reaches at the top of the drop location. 
+Let's define `x = xc - a1`, `z = zc - d1` `offset = -atan2(a3, d4)` and `t = sqrt(a3**2 + d4**2)`, because,
+```python
+x = a2 * sin(theta2) + t * cos(theta2 + (theta3_dot))
+z = a2 * cos(theta2) - t * sin(theta2 + (theta3_dot))
+x**2 + z**2 = a2**2 + t**2 - 2 * a2 * t * sin(theta3_dot))
+```
+So,
+```python
+cos(theta3_dot) = sqrt(1 - sin(theta3_dot)**2)
+k1 = a2 - t * sin(theta3_dot)
+k2 = t * cos(theta3_dot)
+theta3 = atan2(sin(theta3_dot), cos(theta3_dot)) - offset
+theta2 = atan2(x, z) - atan2(k2, k1)
+```
 
-There is no loopback implemented yet, so you need to close all the terminal windows in order to restart.
+Since I solved Inverse Position Kinematics by now, it's not too hard to derive theta4, theta5 and theta6. Because `R0_6` is equal to `Rrpy`,
+```python
+R0_3.transpose() * R0_6 = R0_3.transpose() * Rrpy = R3_6
+```
+And R3_6 is a homogeneous transformation about theta4, theta5 and theta6 in the following form,
+```python
+[-sin(q4)*sin(q6) + cos(q4)*cos(q5)*cos(q6), -sin(q4)*cos(q6) - sin(q6)*cos(q4)*cos(q5), -sin(q5)*cos(q4)],
+[sin(q5)*cos(q6),                            -sin(q5)*sin(q6),                           cos(q5)],
+[-sin(q4)*cos(q5)*cos(q6) - sin(q6)*cos(q4),  sin(q4)*sin(q6)*cos(q5) - cos(q4)*cos(q6), sin(q4)*sin(q5)]
+```
 
-In case the demo fails, close all three terminal windows and rerun the script.
+then,
+```python
+theta4 = atan2(sin(q4), cos(q4)) = atan2(R3_6[2, 2], -R3_6[0, 2])
+theta5 = atan2(sin(q5), cos(q5)) = atan2(sqrt(R3_6[0, 2] * R3_6[0, 2] + R3_6[2, 2] * R3_6[2, 2]), R3_6[1, 2])
+theta6 = atan2(sin(q6), cos(q6)) = atan2(-R3_6[1, 1], R3_6[1, 0])
+```
 
+### Project Implementation
+
+#### 1. Fill in the `IK_server.py` file with properly commented python code for calculating Inverse Kinematics based on previously performed Kinematic Analysis. Your code must guide the robot to successfully complete 8/10 pick and place cycles.
+
+After filling in IK code mentioned above in `IK_server.py`, I tried 12 pick & place and the robot succeeded in all cycles.
+
+![alt text][image3]
+
+Although my current code works fine in the pick and place cycles, it takes quite a few seconds in calculating all Inverse Kinematics for the given waypoints (about 0.5s of each). It's quite slow in my reckoning and I'd like to improve the performance given the chance to pursue this project in the future, maybe through c++.
