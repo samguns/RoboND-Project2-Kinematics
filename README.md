@@ -44,12 +44,56 @@ Then transformation matrices for individual joint are,
 
 ```python
 T0_1 = dh_matrix(q1, a0, d1, alpha0)
-T1_2 = dh_matrix(q2 - pi / 2, a1, d2, alpha1)
+Matrix([
+[cos(q1), -sin(q1), 0,    0],
+[sin(q1),  cos(q1), 0,    0],
+[      0,        0, 1, 0.75],
+[      0,        0, 0,    1]])
+```
+```python
+T1_2 = dh_matrix(q2 - pi / 2, a1, d2, alpha1)Matrix([
+[sin(q2),  cos(q2), 0, 0.35],
+[      0,        0, 1,    0],
+[cos(q2), -sin(q2), 0,    0],
+[      0,        0, 0,    1]])
+```
+```python
 T2_3 = dh_matrix(q3, a2, d3, alpha2)
+Matrix([
+[cos(q3), -sin(q3), 0, 1.25],
+[sin(q3),  cos(q3), 0,    0],
+[      0,        0, 1,    0],
+[      0,        0, 0,    1]])
+```
+```python
 T3_4 = dh_matrix(q4, a3, d4, alpha3)
+Matrix([
+[ cos(q4), -sin(q4), 0, -0.054],
+[       0,        0, 1,    1.5],
+[-sin(q4), -cos(q4), 0,      0],
+[       0,        0, 0,      1]])
+```
+```python
 T4_5 = dh_matrix(q5, a4, d5, alpha4)
-T5_6 = dh_matrix(q6, a5, d6, alpha5)
-T6_G = dh_matrix(q7, a6, d7, alpha6)
+Matrix([
+[cos(q5), -sin(q5),  0, 0],
+[      0,        0, -1, 0],
+[sin(q5),  cos(q5),  0, 0],
+[      0,        0,  0, 1]])
+```
+```python
+T5_6 = dh_matrix(q6, a5, d6, alpha5)Matrix([
+[ cos(q6), -sin(q6), 0, 0],
+[       0,        0, 1, 0],
+[-sin(q6), -cos(q6), 0, 0],
+[       0,        0, 0, 1]])
+```
+```python
+T6_G = dh_matrix(q7, a6, d7, alpha6)Matrix([
+[cos(q7), -sin(q7), 0,     0],
+[sin(q7),  cos(q7), 0,     0],
+[      0,        0, 1, 0.303],
+[      0,        0, 0,     1]])
 ```
 
 And the homogeneous transform from base_link to gripper_link is a post-product of individual transformation defined above,
